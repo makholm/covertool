@@ -6,6 +6,7 @@ go:
   - 1.9
   - "1.10"
   - 1.16
+  - 1.19
   - tip
 script:
   - cd examples/calc && ./run-tests.sh

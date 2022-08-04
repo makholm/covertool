@@ -15,11 +15,14 @@
 package cover
 
 import (
+	"errors"
 	"flag"
 	"io"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 // ParseAndStriptestFlags runs flag.Parse to parse the standard flags of a test
@@ -44,6 +47,22 @@ func ParseAndStripTestFlags() {
 
 type dummyTestDeps func(pat, str string) (bool, error)
 
+// corpusEntry is an alias to the same type as internal/fuzz.CorpusEntry.
+// We use a type alias because we don't want to export this type, and we can't
+// import internal/fuzz from testing.
+type corpusEntry = struct {
+	Parent     string
+	Path       string
+	Data       []byte
+	Values     []any
+	Generation int
+	IsSeed     bool
+}
+
+// No one should be using func Main anymore.
+// See the doc comment on func Main and use MainStart instead.
+var errMain = errors.New("testing: unexpected use of func Main")
+
 func (d dummyTestDeps) MatchString(pat, str string) (bool, error)   { return false, nil }
 func (d dummyTestDeps) StartCPUProfile(io.Writer) error             { return nil }
 func (d dummyTestDeps) StopCPUProfile()                             {}
@@ -53,6 +72,16 @@ func (d dummyTestDeps) WriteHeapProfile(io.Writer) error            { return nil
 func (d dummyTestDeps) WriteProfileTo(string, io.Writer, int) error { return nil }
 func (f dummyTestDeps) ImportPath() string                          { return "" }
 func (f dummyTestDeps) SetPanicOnExit0(v bool)                      {}
+func (f dummyTestDeps) CoordinateFuzzing(time.Duration, int64, time.Duration, int64, int, []corpusEntry, []reflect.Type, string, string) error {
+	return errMain
+}
+func (f dummyTestDeps) RunFuzzWorker(func(corpusEntry) error) error { return errMain }
+func (f dummyTestDeps) ReadCorpus(string, []reflect.Type) ([]corpusEntry, error) {
+	return nil, errMain
+}
+func (f dummyTestDeps) CheckCorpus([]any, []reflect.Type) error { return nil }
+func (f dummyTestDeps) ResetCoverage()                          {}
+func (f dummyTestDeps) SnapshotCoverage()                       {}
 
 // FlushProfiles flushes test profiles to disk. It works by build and executing
 // a dummy list of 1 test. This is to ensure we execute the M.after() function
@@ -73,8 +102,9 @@ func FlushProfiles() {
 	tests := []testing.InternalTest{}
 	benchmarks := []testing.InternalBenchmark{}
 	examples := []testing.InternalExample{}
+	fuzzTargets := []testing.InternalFuzzTarget{}
 	var f dummyTestDeps
-	dummyM := testing.MainStart(f, tests, benchmarks, examples)
+	dummyM := testing.MainStart(f, tests, benchmarks, fuzzTargets, examples)
 	dummyM.Run()
 
 	// restore stdout/err
