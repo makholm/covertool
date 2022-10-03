@@ -19,7 +19,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"testing"
 )
 
 // ParseAndStriptestFlags runs flag.Parse to parse the standard flags of a test
@@ -53,31 +52,3 @@ func (d dummyTestDeps) WriteHeapProfile(io.Writer) error            { return nil
 func (d dummyTestDeps) WriteProfileTo(string, io.Writer, int) error { return nil }
 func (f dummyTestDeps) ImportPath() string                          { return "" }
 func (f dummyTestDeps) SetPanicOnExit0(v bool)                      {}
-
-// FlushProfiles flushes test profiles to disk. It works by build and executing
-// a dummy list of 1 test. This is to ensure we execute the M.after() function
-// (a function internal to the testing package) where all reporting (cpu, mem,
-// cover, ... profiles) is flushed to disk.
-func FlushProfiles() {
-	// Redirect Stdout/err temporarily so the testing code doesn't output the
-	// regular:
-	//   PASS
-	//   coverage: 21.4% of statements
-	// Thanks to this, we can test the output of the instrumented binary the same
-	// way the normal binary is.
-	oldstdout := os.Stdout
-	oldstderr := os.Stderr
-	os.Stdout, _ = os.Open(os.DevNull)
-	os.Stderr, _ = os.Open(os.DevNull)
-
-	tests := []testing.InternalTest{}
-	benchmarks := []testing.InternalBenchmark{}
-	examples := []testing.InternalExample{}
-	var f dummyTestDeps
-	dummyM := testing.MainStart(f, tests, benchmarks, examples)
-	dummyM.Run()
-
-	// restore stdout/err
-	os.Stdout = oldstdout
-	os.Stderr = oldstderr
-}

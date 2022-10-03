@@ -7,10 +7,12 @@ function fatal() {
     exit 1
 }
 
+rm -f ./calc
+
 go install github.com/makholm/covertool
 
 echo "• Build the coverage-instrumented version of calc"
-go test -o calc -covermode count &> /dev/null
+go test -o calc -covermode count
 
 echo
 echo "• Run the unit tests"
